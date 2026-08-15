@@ -1,18 +1,29 @@
 using Application.Dtos;
+using Application.Services;
+using FluentResults.Extensions.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Web.Controllers
 {
     [ApiController]
-    [Route("/")]
+    [Route("/analysis/")]
     public class CsvAnalysisController : ControllerBase
     {
+        private readonly ICsvAnalysisService _csvAnalysisService;
+
+        public CsvAnalysisController(ICsvAnalysisService csvAnalysisService)
+        {
+            _csvAnalysisService = csvAnalysisService;
+        }
+
         [HttpPost]
         [ProducesResponseType<ResponseDto>(StatusCodes.Status200OK)]
         [ProducesResponseType<ResponseDto>(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadFile(IFormFile formFile)
         {
-            throw new NotImplementedException();
+            return await _csvAnalysisService
+                .UploadCsv(formFile.FileName, formFile.ContentType, formFile.OpenReadStream(), formFile.Length)
+                .ToActionResult();
         }
 
         [HttpGet("search")]

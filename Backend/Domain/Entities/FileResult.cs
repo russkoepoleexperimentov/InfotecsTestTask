@@ -1,6 +1,6 @@
 ﻿namespace Domain.Entities
 {
-    public class Result : BaseEntity
+    public class FileResult : BaseEntity
     {
         public string FileName { get; set; } = null!;
         public int DeltaSeconds { get; set; }
