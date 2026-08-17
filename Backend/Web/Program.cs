@@ -1,7 +1,10 @@
 
 
+using Application.Persistence;
 using Application.Services;
 using Application.Services.Implementations;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Web
 {
@@ -15,9 +18,17 @@ namespace Web
             builder.Services.AddControllers();
             builder.Services.AddSwaggerGen();
 
-            builder.Services.AddTransient<ICsvAnalysisService, CsvAnalysisService>();
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+            builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+
+            builder.Services.AddScoped<ICsvAnalysisService, CsvAnalysisService>();
 
             var app = builder.Build();
+
+            using (var scope = app.Services.CreateScope())
+                scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
 
             app.UseSwagger(); 
             app.UseSwaggerUI();

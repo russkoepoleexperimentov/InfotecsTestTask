@@ -1,4 +1,4 @@
-﻿namespace Domain.Entities
+namespace Domain.Entities
 {
     public class FileResult : BaseEntity
     {
@@ -10,5 +10,7 @@
         public float MedianValue { get; set; }
         public float MinimumValue { get; set; }
         public float MaximumValue { get; set; }
+
+        public List<ValueRecord> Values { get; set; } = [];
     }
 }

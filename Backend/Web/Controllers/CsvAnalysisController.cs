@@ -17,7 +17,7 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        [ProducesResponseType<ResponseDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ResponseDto<ResultViewDto>>(StatusCodes.Status200OK)]
         [ProducesResponseType<ResponseDto>(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadFile(IFormFile formFile)
         {
