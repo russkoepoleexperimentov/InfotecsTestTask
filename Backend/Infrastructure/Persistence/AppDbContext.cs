@@ -22,6 +22,11 @@ namespace Infrastructure.Persistence
                 entity.HasIndex(fileResult => fileResult.FileName).IsUnique();
                 entity.Property(fileResult => fileResult.FileName).HasMaxLength(255);
 
+                // поля, по которым идёт фильтрация диапазонами в поиске
+                entity.HasIndex(fileResult => fileResult.FirstExecutionTime);
+                entity.HasIndex(fileResult => fileResult.AverageValue);
+                entity.HasIndex(fileResult => fileResult.AverageExcecutionTime);
+
                 entity
                     .HasMany(fileResult => fileResult.Values)
                     .WithOne(value => value.FileResult)
@@ -33,7 +38,9 @@ namespace Infrastructure.Persistence
             {
                 entity.ToTable("Values");
                 entity.HasKey(value => value.Id);
-                entity.HasIndex(value => value.Date);
+                // выборка последних значений одного файла: фильтр по FileResultId + сортировка по Date
+                entity.HasIndex(value => new { value.FileResultId, value.Date })
+                    .IsDescending(false, true);
             });
         }
     }

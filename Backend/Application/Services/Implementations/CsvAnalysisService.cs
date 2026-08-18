@@ -12,6 +12,8 @@ namespace Application.Services.Implementations
         const char CsvDelimeter = ';';
         const string DateFormat = "yyyy-MM-ddTHH:mm:ss.FFFFFFFK";
         const long MaxFileLength = 10 * 1024 * 1024;
+        const int MostRecentValuesCount = 10;
+        const int MaxPageSize = 100;
 
         private readonly IAppDbContext _dbContext;
 
@@ -186,14 +188,110 @@ namespace Application.Services.Implementations
             MaximumValue = fileResult.MaximumValue,
         };
 
-        public async Task<Result<List<ResultViewDto>>> GetMostRecentResults()
+        public async Task<Result<List<ValueViewDto>>> GetMostRecentValues(string fileName)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(fileName))
+                return Result.Fail("File name is required");
+
+            var fileResultId = await _dbContext.Results
+                .Where(fileResult => fileResult.FileName == fileName)
+                .Select(fileResult => (Guid?)fileResult.Id)
+                .FirstOrDefaultAsync();
+
+            if (fileResultId is null)
+                return Result.Fail($"File '{fileName}' is not found");
+
+            var values = await _dbContext.Values
+                .AsNoTracking()
+                .Where(value => value.FileResultId == fileResultId)
+                .OrderByDescending(value => value.Date)
+                .Take(MostRecentValuesCount)
+                .Select(value => new ValueViewDto
+                {
+                    Id = value.Id,
+                    Date = value.Date,
+                    ExceutionTime = value.ExceutionTime,
+                    Value = value.Value,
+                })
+                .ToListAsync();
+
+            return Result.Ok(values);
         }
 
         public async Task<Result<PagedListDto<ResultViewDto>>> SearchResults(ResultSearchDto searchDto)
         {
-            throw new NotImplementedException();
+            if (searchDto is null)
+                return Result.Fail("Search parameters are required");
+
+            if (searchDto.Skip < 0)
+                return Result.Fail("Skip cannot be negative");
+
+            if (searchDto.Take < 1 || searchDto.Take > MaxPageSize)
+                return Result.Fail($"Take must be between 1 and {MaxPageSize}");
+
+            var query = _dbContext.Results.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(searchDto.NameQuery))
+            {
+                // без привязки к провайдеру: транслируется в LOWER(...) LIKE '%...%'
+                var nameQuery = searchDto.NameQuery.Trim().ToLower();
+                query = query.Where(fileResult => fileResult.FileName.ToLower().Contains(nameQuery));
+            }
+
+            if (searchDto.FirstExecutionRange is { } firstExecutionRange)
+            {
+                if (firstExecutionRange.Min is { } min)
+                    query = query.Where(fileResult => fileResult.FirstExecutionTime >= min);
+
+                if (firstExecutionRange.Max is { } max)
+                    query = query.Where(fileResult => fileResult.FirstExecutionTime <= max);
+            }
+
+            if (searchDto.AverageValueRange is { } averageValueRange)
+            {
+                if (averageValueRange.Min is { } min)
+                    query = query.Where(fileResult => fileResult.AverageValue >= min);
+
+                if (averageValueRange.Max is { } max)
+                    query = query.Where(fileResult => fileResult.AverageValue <= max);
+            }
+
+            if (searchDto.AverageExcecutionTimeRange is { } averageExecutionTimeRange)
+            {
+                if (averageExecutionTimeRange.Min is { } min)
+                    query = query.Where(fileResult => fileResult.AverageExcecutionTime >= min);
+
+                if (averageExecutionTimeRange.Max is { } max)
+                    query = query.Where(fileResult => fileResult.AverageExcecutionTime <= max);
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var results = await query
+                .OrderBy(fileResult => fileResult.FileName)
+                .Skip(searchDto.Skip)
+                .Take(searchDto.Take)
+                .Select(fileResult => new ResultViewDto
+                {
+                    Id = fileResult.Id,
+                    FileName = fileResult.FileName,
+                    DeltaSeconds = fileResult.DeltaSeconds,
+                    FirstExcecutionTime = fileResult.FirstExecutionTime,
+                    AverageExcecutionTime = fileResult.AverageExcecutionTime,
+                    AverageValue = fileResult.AverageValue,
+                    MedianValue = fileResult.MedianValue,
+                    MinimumValue = fileResult.MinimumValue,
+                    MaximumValue = fileResult.MaximumValue,
+                })
+                .ToListAsync();
+
+            return Result.Ok(new PagedListDto<ResultViewDto>
+            {
+                Values = results,
+                Skipped = searchDto.Skip,
+                Taken = results.Count,
+                TotalCount = totalCount,
+            });
         }
 
         // https://github.com/medusajs/medusa/issues/15416

@@ -8,6 +8,6 @@ namespace Application.Services
     {
         Task<Result<ResultViewDto>> UploadCsv(string fileName, string fileContentType, Stream fileReadStream, long fileLength);
         Task<Result<PagedListDto<ResultViewDto>>> SearchResults(ResultSearchDto searchDto);
-        Task<Result<List<ResultViewDto>>> GetMostRecentResults();
+        Task<Result<List<ValueViewDto>>> GetMostRecentValues(string fileName);
     }
 }
